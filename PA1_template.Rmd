@@ -1,25 +1,146 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research PA1"
+author: "Gabriel Almeida"
+date: "Saturday, November 15, 2014"
 ---
 
+####Download this analyse data from [site](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip) or [github](https://github.com/ssirbill/RepData_PeerAssessment1) .
 
-## Loading and preprocessing the data
+####Library
+```{r, echo=TRUE,results='hide'}
+library(xtable)
+library(ggplot2)
+library(sqldf)
+library(lubridate)
+Sys.setlocale("LC_TIME", "English")
+```
+
+####Read and clean data. 
+
+```{r, echo=TRUE}
+rawData <- read.csv("activity.csv")
+cleanData <- rawData[!is.na(rawData[,1]),]
+```
+
+####Ignore the missing values in rawData and make a histogram of the total number of steps taken each day.
+
+```{r, echo=TRUE}
+sumSteps <- aggregate(steps ~ date, data = cleanData, sum)
+hist(sumSteps$steps)
+```
+
+####Calculate the mean of total number of steps taken per day.
+
+```{r, echo=TRUE,  results='asis'}
+meanSteps <- aggregate(steps ~ date, data = cleanData, mean)
+print(xtable(meanSteps), type = "html")
+```
+
+####Total steps mean. 
+```{r, echo=TRUE,  results='asis'}
+mean(sumSteps$steps)
+```
+
+####Calculate the median of total number of steps taken per day.
+
+```{r, echo=TRUE,  results='asis'}
+medianSteps <- aggregate(steps ~ date, data = cleanData, median)
+print(xtable(medianSteps), type = "html")
+```
+
+####Total steps median. 
+```{r, echo=TRUE,  results='asis'}
+median(cleanData$steps)
+```
+
+####Plot a time series of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis).
+
+```{r, echo=TRUE,  results='asis'}
+meanStepsTime <- aggregate(steps ~ interval, data = cleanData, mean)
+
+g <- ggplot(data = meanStepsTime, aes(interval,steps))
+g + geom_line() + labs(title = "Average daily activity pattern")
+```
+
+####5-minute interval that contains the maximum number of steps and the number of steps is.
+
+```{r, echo=TRUE,  results='asis'}
+maxSteps <- meanStepsTime[which(meanStepsTime$steps == max(meanStepsTime$steps)),]
+print(xtable(maxSteps), type = "html")
+```
+
+####Calculate the total of missing values in the dataset.
+
+```{r, echo=TRUE,  results='asis'}
+nrow(rawData[is.na(rawData[,1]),])
+```
+
+####Filling missing values with the mean for that 5-minute interval.
+
+```{r, echo=TRUE,  results='asis'}
+missingData <- rawData[is.na(rawData[,1]),]
 
 
+filledDataTemp <- sqldf('select b.steps, a.date, a.interval  
+                     from missingData as a
+                     left join meanStepsTime as b
+	                 on a.interval = b.interval')
+filledData <- rbind(filledDataTemp,cleanData)
+```
 
-## What is mean total number of steps taken per day?
+####Histogram of the total number of steps taken each day.
 
+```{r, echo=TRUE}
+sumStepsFilled <- aggregate(steps ~ date, data = filledData, sum)
+hist(sumStepsFilled$steps)
+```
 
+####Calculate the mean of total number of steps taken per day.
 
-## What is the average daily activity pattern?
+```{r, echo=TRUE,  results='asis'}
+meanSteps <- aggregate(steps ~ date, data = filledData, mean)
+print(xtable(meanSteps), type = "html")
+```
 
+####Total steps mean. 
+```{r, echo=TRUE,  results='asis'}
+sumSteps <- aggregate(steps ~ date, data = filledData, sum)
+mean(sumSteps$steps)
+```
 
+####Calculate the median of total number of steps taken per day.
 
-## Imputing missing values
+```{r, echo=TRUE,  results='asis'}
+medianSteps <- aggregate(steps ~ date, data = filledData, median)
+print(xtable(medianSteps), type = "html")
+```
 
+####Total steps median. 
+```{r, echo=TRUE,  results='asis'}
+median(filledData$steps)
+```
 
+####Results: 
+The values from filled data differ from data of clean data(no missing values). In filled data, median has new values different zero and the mean is almost the same for the dataset.
+For total values of median and means, dont have significant changes. 
 
-## Are there differences in activity patterns between weekdays and weekends?
+####Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
+
+```{r, echo=TRUE,  results='asis'}
+filledData$date <- ymd(filledData$date)
+filledData$weekdays <- weekdays(filledData$date)
+
+filledData$weekday.type <- ifelse(filledData$weekday == "Saturday" |
+                            filledData$weekday == "Sunday", "Weekend", 
+                            "Weekday")
+
+filledData$weekday.type <- factor(filledData$weekday.type)
+```
+
+####Make a panel plot containing a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis)
+
+```{r, echo=TRUE,  results='asis'}
+meanStepsTime <- aggregate(steps ~ interval + weekday.type, data = filledData, mean)
+g <- ggplot(data = meanStepsTime, aes(interval,steps))
+g + geom_line() + facet_grid(weekday.type ~ .)
+```
